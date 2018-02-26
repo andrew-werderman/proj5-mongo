@@ -12,8 +12,9 @@ app = Flask(__name__)
 CONFIG = config.configuration()
 app.secret_key = CONFIG.SECRET_KEY
 
-client = MongoClient("db", 27017)
-db = client.tododb
+client = MongoClient('db', 27017)
+db = client.brevetdb
+collection = db.brevet
 
 ###
 # Pages
@@ -23,13 +24,14 @@ db = client.tododb
 @app.route("/index")
 def index():
     app.logger.debug("Main page entry")
+    collection.delete_many({})
     return render_template('calc.html')
 
-@app.route('/todo')
-def todo():
-    _items = db.tododb.find()
-    items = [item for item in _items]
-    return render_template('todo.html', items=items)
+@app.route('/db')
+def db():
+    _controls = collection.find()
+    controls = [control for control in _controls]
+    return render_template('db.html', items=controls)
 
 @app.errorhandler(404)
 def page_not_found(error):
@@ -67,18 +69,43 @@ def _calc_times():
     result = {"open": open_time.for_json(), "close": close_time.for_json()}
     return flask.jsonify(result=result)
 
+@app.route('/_submit_to_db', methods=['POST'])
+def _submit_to_db():
+    brevet = []
+    numItems = 0
+    collection.delete_many({}) # Clear out all current inputs
+    app.logger.debug("flask submit function")
+    # Collect brevet data from POST
+    control_kms = request.form.getlist('km')
+    control_locs = request.form.getlist('location')
+    opening_times = request.form.getlist('open')
+    closing_times = request.form.getlist('close')
+    
+    for i, item in enumerate(opening_times):
+        if (item == ''):
+            continue
+        control_doc = {
+            'control_km': control_kms[i],
+            'control_location': control_locs[i],
+            'open_time': opening_times[i],
+            'close_time': closing_times[i]
+        }
+        brevet.append(control_doc)
+        numItems += 1
+    if (brevet == []):
+        result = {'message': 'Empty Brevet', 'num': numItems}
+    else: 
+        brevet = sorted(brevet, key=lambda ctrl: ctrl['control_km'])
+        collection.insert(brevet)
+        result = {'message': 'A-OK', 'num': numItems}
+    return flask.jsonify(result=result)
+
+@app.route('/_display_db')
+def _display_db():
+    result = url_for('db')
+    return flask.jsonify(result=result)
+
 #############
-
-@app.route('/new', methods=['POST'])
-def new():
-    item_doc = {
-        'name': request.form['name'],
-        'description': request.form['description']
-    }
-    db.tododb.insert_one(item_doc)
-
-    return redirect(url_for('todo'))
-
 
 app.debug = CONFIG.DEBUG
 if app.debug:
