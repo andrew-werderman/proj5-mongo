@@ -30,7 +30,7 @@ def index():
 @app.route('/db')
 def db():
     _controls = collection.find()
-    controls = [control for control in _controls]
+    controls = [ctrl for ctrl in _controls]
     return render_template('db.html', items=controls)
 
 @app.errorhandler(404)
@@ -85,7 +85,7 @@ def _submit_to_db():
         if (item == ''):
             continue
         control_doc = {
-            'control_km': control_kms[i],
+            'control_km': int(control_kms[i]),
             'control_location': control_locs[i],
             'open_time': opening_times[i],
             'close_time': closing_times[i]
@@ -95,8 +95,8 @@ def _submit_to_db():
     if (brevet == []):
         result = {'message': 'Empty Brevet', 'num': numItems}
     else: 
-        brevet = sorted(brevet, key=lambda ctrl: ctrl['control_km'])
-        collection.insert(brevet)
+        sorted_brev = sorted(brevet, key=lambda ctrl: ctrl['control_km'])
+        collection.insert(sorted_brev)
         result = {'message': 'A-OK', 'num': numItems}
     return flask.jsonify(result=result)
 
